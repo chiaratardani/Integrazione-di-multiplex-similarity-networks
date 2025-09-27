@@ -160,6 +160,7 @@ class GeometricAggregator(SimilarityMatrixAggregator):
         return lowRA @ middle @ uppRA
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
+        self.convergence_history = [] # Reset dell'attributo ad ogni chiamata di 'aggregate'
         if len(self.matrices) == 1:
             return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation}
@@ -171,14 +172,11 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             return result, info
         
         # Algoritmo iterativo per più di 2 matrici
-        k = self.k_init  # Indice iniziale parametrizzabile
-        self.convergence_history = [] 
-        iter_count = 1
+        k = self.k_init  # Indice iniziale parametrizzabile 
         jk = modif_mod(k, len(self.matrices))  # Indice circolare
-        X_current = self.matrices[jk - 1]  # Matrice di partenza 
-        flag = True
+        X_current = self.matrices[jk - 1]  # Matrice di partenza
         
-        while flag and iter_count <= self.max_iter:
+        for iter_count in range(1, self.max_iter + 1):
             jk_next = modif_mod(k + 1, len(self.matrices))
             w_exp = self.weights[jk_next - 1]
             S_next = self.matrices[jk_next - 1]
@@ -194,40 +192,42 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             
             # Calcola errore di convergenza
             diff = X_next - X_current
-            #num_err = np.trace(diff @ diff.T)  
-            #den_err = np.trace(X_current @ X_current.T) 
-            #error = num_err / den_err 
-            error = np.trace(diff @ diff.T) / np.trace(X_current @ X_current.T)
+            diff = X_next - X_current
+            num_err = np.trace(diff @ diff.T)
+            den_err = np.trace(X_current @ X_current.T)
+            error = num_err / den_err
             self.convergence_history.append(error)
             
+            # Controllo convergenza
             if error <= self.tolerance:
-                print(f'Convergenza raggiunta all'iterazione: {iter_count}')
-                flag = False
-            elif iter_count >= self.max_iter:
-                print('Raggiunto numero massimo di iterazioni')
-                flag = False
-            else:
-                X_current = X_next
-                k += 1
-                iter_count += 1
-            
+                print(f"Convergenza raggiunta all'iterazione: {iter_count}")
+                info = {
+                    "method": "geometric_mean", 
+                    "iterations": iter_count,
+                    "weights_source": self.weights_source,
+                    "RV_matrix": self.RV_matrix,
+                    "weight_evaluation": self.weight_evaluation,
+                    "convergence_history": self.convergence_history.copy(),
+                    "final_error": error
+               }
+                return X_next, info # In caso di convergenza, riotorniamo X_next (l'ultimo computato)
+                
+            # Prepariamo la prossima iterazione   
+            X_current = X_next
+            k += 1
+
+        print('Raggiunto numero massimo di iterazioni')
         info = {
             "method": "geometric_mean", 
-            "iterations": iter_count,
+            "iterations":  self.max_iter,
             "weights_source": self.weights_source,
             "RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
-            "final_error": self.convergence_history[-1]
+            "final_error": self.convergence_history[-1] 
         }
-                
-            
 
-        if iter_count >= self.max_iter and error > self.tolerance:
-            info["warning"] = "Raggiunto numero massimo di iterazioni"
-            return X_current, info
-        else:
-            return X_next, info
+       return X_current, info
 
 class WassersteinAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media di Wasserstein."""
@@ -260,6 +260,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         return negrad @ sq_somma @ negrad
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
+        self.convergence_history = [] # Reset della storia di convergenza
         if len(self.matrices) == 1:
             return self.matrices[0], {"method": "wasserstein_mean", "iterations": 0, "weights_source": self.weights_source,
             "RV_matrix": self.RV_matrix, "weight_evaluation": self.weight_evaluation}
@@ -277,10 +278,12 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
             return result, info
         
         # Algoritmo iterativo per più matrici
-        X_current = self.matrices[0]  # Inizia con la prima matrice
+        import random
+        k = random.randint(0, len(self.matrices) - 1) # Scegliamo random una matrice iniziale
+        X_current = self.matrices[k]  
         self.convergence_history = []
         
-        for iteration in range(self.max_iter):
+        for iter_count in range(1, self.max_iter + 1):
             X_next = self._kx_compute(X_current)
             
             # Calcola errore di convergenza
@@ -289,9 +292,10 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
             self.convergence_history.append(error)
             
             if error <= self.tolerance:
+                print(f"Convergenza raggiunta all'iterazione: {iter_count}")
                 info = {
                     "method": "wasserstein_mean",
-                    "iterations": iteration + 1,
+                    "iterations": iter_count,
                     "weights_source": self.weights_source,
                     "RV_matrix": self.RV_matrix,  
                     "weight_evaluation": self.weight_evaluation,
@@ -301,7 +305,8 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
                 return X_next, info
             
             X_current = X_next
-        
+            
+        print('Raggiunto numero massimo di iterazioni')
         info = {
             "method": "wasserstein_mean",
             "iterations": self.max_iter,
@@ -309,8 +314,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
             "RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
-            "final_error": self.convergence_history[-1],
-            "warning": "Raggiunto numero massimo di iterazioni"
+            "final_error": self.convergence_history[-1] 
         }
         return X_current, info
 
