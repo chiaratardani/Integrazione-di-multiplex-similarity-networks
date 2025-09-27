@@ -9,8 +9,9 @@ class SimilarityMatrixAggregator(ABC):
     
     def __init__(self, matrices: List[np.ndarray]):
         self.matrices = matrices
-        self.weights: Optional[np.ndarray] = None
+        self.weights, self.weights_source, self.RV_matrix = self._resolve_weights(weights)
         self._validate_input()
+        self.weight_evaluation = self._compute_weight_evaluation()
     
     def _validate_input(self) -> None:
         """Valida gli input delle matrici."""
@@ -31,12 +32,46 @@ class SimilarityMatrixAggregator(ABC):
         for i, matrix in enumerate(self.matrices[1:]):
             if matrix.shape != first_shape:
                 raise ValueError(f"Matrice {i+1} ha dimensioni diverse dalla prima")
+                
+     def _compute_weight_evaluation(self) -> Optional[float]:
+        """Calcola la valutazione dei pesi usando la matrice RV."""
+        if self.RV_matrix is not None:
+            return eval_weights(self.RV_matrix)
+        return None  # Se non disponibile
+                
+     def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
+        """Gestisce i pesi: se forniti li valida, altrimenti li calcola.
+        In particolare, resituisce (pesi, fonte, matrice_RV)."""
+        if weights is not None:
+            # Validazione pesi utente
+            if len(weights) != len(self.matrices):
+                raise ValueError(f"Numero di pesi ({len(weights)}) != numero di matrici ({len(self.matrices)})")
+            if not np.all(weights >= 0):
+                raise ValueError("Tutti i pesi devono essere non negativi")
+            if np.sum(weights) == 0:
+                raise ValueError("La somma dei pesi non può essere zero")
+            
+            normalized_weights = weights / np.sum(weights)  # Normalizza
+            return normalized_weights, "provided", None  # Nessuna matrice RV per pesi utente
+        else:
+            # Calcola pesi specifici per il metodo
+            computed_weights, RV_matrix = self._compute_method_specific_weights()
+            return computed_weights, "computed", RV_matrix
+            
+    # Utilizziamo il decoratore @abstractmethod per segnare i metodi che devono essere implementati dalle classi figlie.
+    @abstractmethod
+    def _compute_method_specific_weights(self) -> np.ndarray:
+        """METODO ASTRATTO: ogni sottoclasse implementa il suo calcolo specifico."""
+        pass            
     
     @abstractmethod
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Calcola l'aggregato delle matrici."""
         pass
-    
+        
+    # Metodo che restituisce i pesi utilizzati per l'aggregazione (dopo aver creato 
+    # l'aggregatore): otteniamo un array NumPy oppure None se i pesi non sono 
+    # disponibili (il tipo Optional è usato per precauzione).
     def get_weights(self) -> Optional[np.ndarray]:
         """Restituisce i pesi utilizzati per l'aggregazione."""
         return self.weights
@@ -46,20 +81,10 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media aritmetica pesata con Frobenius."""
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None):
-        super().__init__(matrices)
-        self.weights_source = "provided" if weights is not None else "computed"
-        if weights is not None:
-            if len(weights) != len(matrices):
-                raise ValueError("Il numero di pesi deve corrispondere al numero di matrici")
-            if not np.all(weights >= 0):
-                raise ValueError("Tutti i pesi devono essere non negativi")
-            self.weights = weights / np.sum(weights)  # Normalizza
-        else:
-            # Calcola pesi automaticamente
-            self._compute_weights()
+        super().__init__(matrices, weights)  # Matrici e pesi gestiti dalla classe base (astratta)
     
-    def _compute_weights(self) -> None:
-        """Calcola i pesi usando il metodo di Frobenius."""
+    def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Calcola i pesi (e matrice RV) usando il metodo di Frobenius."""
         # Crea matrice RV per calcolare similarità tra matrici
         n = len(self.matrices)
         RV = np.identity(n)
@@ -70,7 +95,8 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
                     np.linalg.norm(self.matrices[i], 'fro') * np.linalg.norm(self.matrices[j], 'fro'))
         
         RV = RV + RV.T - np.identity(n)
-        self.weights = frobenius_weights(RV)
+        weights = frobenius_weights(RV)
+        return weights, RV
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         weighted_sum = np.zeros_like(self.matrices[0])
@@ -80,7 +106,8 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
         info = {
             "method": "weighted_arithmetic_mean", 
             "weights": self.weights.copy(),
-            "weight_evaluation": eval_weights(np.diag(self.weights))
+            "RV_matrix": self.RV_matrix,  # Matrice RV 
+            "weight_evaluation": self.weight_evaluation  # Funzione che valuta quanto bene i pesi rappresentano le matrici
         }
         return weighted_sum, info
 
@@ -89,13 +116,16 @@ class GeometricAggregator(SimilarityMatrixAggregator):
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
                  max_iter: int = 200, tolerance: float = 1e-12, corr_factor: float = 0):
-        super().__init__(matrices)
+        super().__init__(matrices, weights)
         self.max_iter = max_iter
         self.tolerance = tolerance
         self.corr_factor = corr_factor
-        self.weights = weights if weights is not None else riem_weights(matrices)[0]
-        self.weights_source = "provided" if weights is not None else "computed"
         self.convergence_history: List[float] = []
+                     
+    def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Calcola pesi e matrice di correlazione automaticamente con riem_weights."""
+         weights, corr_matrix = riem_weights(self.matrices)
+         return weights, corr_matrix  # corr_matrix è la nostra "matrice RV"
     
     def _geommean_two(self, A: np.ndarray, B: np.ndarray, t: float) -> np.ndarray:
         """Calcola la media geometrica pesata di due matrici."""
@@ -128,11 +158,13 @@ class GeometricAggregator(SimilarityMatrixAggregator):
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         if len(self.matrices) == 1:
-            return self.matrices[0], {"method": "geometric_mean", "iterations": 0}
+            return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source: self.weights_source,"RV_matrix": self.RV_matrix,
+            "weight_evaluation": self.weight_evaluation}
         
         if len(self.matrices) == 2:
             result = self._geommean_two(self.matrices[0], self.matrices[1], self.weights[0])
-            info = {"method": "geometric_mean", "iterations": 1}
+            info = {"method": "geometric_mean", "iterations": 1, "weights_source: self.weights_source,"RV_matrix": self.RV_matrix,
+            "weight_evaluation": self.weight_evaluation}
             return result, info
         
         # Algoritmo iterativo per più di 2 matrici
@@ -158,6 +190,9 @@ class GeometricAggregator(SimilarityMatrixAggregator):
                 info = {
                     "method": "geometric_mean", 
                     "iterations": iteration + 1,
+                    "weights_source: self.weights_source,
+                    "RV_matrix": self.RV_matrix,
+                    "weight_evaluation": self.weight_evaluation,
                     "convergence_history": self.convergence_history.copy(),
                     "final_error": error
                 }
@@ -169,6 +204,9 @@ class GeometricAggregator(SimilarityMatrixAggregator):
         info = {
             "method": "geometric_mean", 
             "iterations": self.max_iter,
+            "weights_source": self.weights_source,
+            "RV_matrix": self.RV_matrix,  # Matrice di correlazione da riem_weights
+            "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
             "final_error": self.convergence_history[-1],
             "warning": "Raggiunto numero massimo di iterazioni"
@@ -180,12 +218,15 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
                  max_iter: int =  10, tolerance: float = 2e-8):
-        super().__init__(matrices)
+        super().__init__(matrices, weights) 
         self.max_iter = max_iter
         self.tolerance = tolerance
-        self.weights = weights if weights is not None else riem_weights(matrices)[0]
-        self.weights_source = "provided" if weights is not None else "computed"
         self.convergence_history: List[float] = []
+                     
+    def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Calcola pesi e matrice di correlazione automaticamente con riem_weights."""
+        weights, corr_matrix = riem_weights(self.matrices)
+        return weights, corr_matrix
     
     def _kx_compute(self, X: np.ndarray) -> np.ndarray:
         """Calcola l'operatore K(X) per l'algoritmo di Wasserstein."""
@@ -204,7 +245,8 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         if len(self.matrices) == 1:
-            return self.matrices[0], {"method": "wasserstein_mean", "iterations": 0}
+            return self.matrices[0], {"method": "wasserstein_mean", "iterations": 0, "weights_source": self.weights_source,
+            "RV_matrix": self.RV_matrix, "weight_evaluation": self.weight_evaluation}
         
         if len(self.matrices) == 2:
             # Implementazione forma chiusa per 2 matrici
@@ -214,7 +256,8 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
                 square_root_matrix(self.matrices[0] @ self.matrices[1]) + 
                 square_root_matrix(self.matrices[1] @ self.matrices[0]))
             result = s1 + s2 + s12
-            info = {"method": "wasserstein_mean", "iterations": 1}
+            info = {"method": "wasserstein_mean", "iterations": 1, "weights_source": self.weights_source,
+            "RV_matrix": self.RV_matrix, "weight_evaluation": self.weight_evaluation}
             return result, info
         
         # Algoritmo iterativo per più matrici
@@ -233,6 +276,9 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
                 info = {
                     "method": "wasserstein_mean",
                     "iterations": iteration + 1,
+                    "weights_source": self.weights_source,
+                    "RV_matrix": self.RV_matrix,  
+                    "weight_evaluation": self.weight_evaluation,
                     "convergence_history": self.convergence_history.copy(),
                     "final_error": error
                 }
@@ -243,6 +289,9 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         info = {
             "method": "wasserstein_mean",
             "iterations": self.max_iter,
+            "weights_source": self.weights_source,
+            "RV_matrix": self.RV_matrix,
+            "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
             "final_error": self.convergence_history[-1],
             "warning": "Raggiunto numero massimo di iterazioni"
