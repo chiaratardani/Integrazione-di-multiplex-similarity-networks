@@ -224,7 +224,7 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             "RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
-            "final_error": self.convergence_history[-1] 
+            "final_error": self.convergence_history[-1] if self.convergence_history else float('inf') # Controllo se la lista è vuota per robustezza
         }
 
        return X_current, info
@@ -314,7 +314,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
             "RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
-            "final_error": self.convergence_history[-1] 
+            "final_error": self.convergence_history[-1] if self.convergence_history else float('inf')
         }
         return X_current, info
 
