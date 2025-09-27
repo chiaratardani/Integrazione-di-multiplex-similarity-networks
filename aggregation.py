@@ -40,14 +40,7 @@ class SimilarityMatrixAggregator(ABC):
     def get_weights(self) -> Optional[np.ndarray]:
         """Restituisce i pesi utilizzati per l'aggregazione."""
         return self.weights
-
-class MeanAggregator(SimilarityMatrixAggregator):
-    """Aggregatore per la media aritmetica semplice."""
-    
-    def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
-        mean_matrix = np.mean(self.matrices, axis=0)
-        info = {"method": "arithmetic_mean", "weights": "uniform"}
-        return mean_matrix, info
+        
 
 class WeightedMeanAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media aritmetica pesata con Frobenius."""
@@ -95,7 +88,7 @@ class GeometricAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media geometrica Riemanniana."""
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
-                 max_iter: int = 100, tolerance: float = 1e-6, corr_factor: float = 0):
+                 max_iter: int = 200, tolerance: float = 1e-12, corr_factor: float = 0):
         super().__init__(matrices)
         self.max_iter = max_iter
         self.tolerance = tolerance
@@ -186,7 +179,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media di Wasserstein."""
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
-                 max_iter: int = 100, tolerance: float = 1e-6):
+                 max_iter: int =  10, tolerance: float = 2e-8):
         super().__init__(matrices)
         self.max_iter = max_iter
         self.tolerance = tolerance
@@ -279,6 +272,13 @@ def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tup
     
     if method not in aggregators:
         raise ValueError(f"Metodo non supportato: {method}. Metodi disponibili: {list(aggregators.keys())}")
-    
     aggregator = aggregators[method](matrices, **kwargs)
-    return aggregator.aggregate()
+    barycenter, info = aggregator.aggregate() 
+    norm_barycenter = normalize_simmat(barycenter)
+    # Restituiamo un dizionario completo (con la versione originale del baricentro computato, la versione normalizzata,
+    # così che gli elementi diagonali siano uguali ad 1, e info sul metodo di aggregazione)
+    return {    
+        'original': barycenter,
+        'normalized': normalized_barycenter,
+        'info': info
+    }
