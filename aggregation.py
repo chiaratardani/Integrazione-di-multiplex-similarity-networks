@@ -54,6 +54,7 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None):
         super().__init__(matrices)
+        self.weights_source = "provided" if weights is not None else "computed"
         if weights is not None:
             if len(weights) != len(matrices):
                 raise ValueError("Il numero di pesi deve corrispondere al numero di matrici")
@@ -99,7 +100,8 @@ class GeometricAggregator(SimilarityMatrixAggregator):
         self.max_iter = max_iter
         self.tolerance = tolerance
         self.corr_factor = corr_factor
-        self.weights = weights if weights is not None else weights, _ = riem_weights(matrices)
+        self.weights = weights if weights is not None else riem_weights(matrices)[0]
+        self.weights_source = "provided" if weights is not None else "computed"
         self.convergence_history: List[float] = []
     
     def _geommean_two(self, A: np.ndarray, B: np.ndarray, t: float) -> np.ndarray:
@@ -188,7 +190,8 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         super().__init__(matrices)
         self.max_iter = max_iter
         self.tolerance = tolerance
-        self.weights = weights if weights is not None else weights, _ = riem_weights(matrices)
+        self.weights = weights if weights is not None else riem_weights(matrices)[0]
+        self.weights_source = "provided" if weights is not None else "computed"
         self.convergence_history: List[float] = []
     
     def _kx_compute(self, X: np.ndarray) -> np.ndarray:
