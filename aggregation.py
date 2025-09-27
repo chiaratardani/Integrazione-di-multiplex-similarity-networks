@@ -114,9 +114,10 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
 class GeometricAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media geometrica Riemanniana."""
     
-    def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
+    def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None, k_init: int = 0,
                  max_iter: int = 200, tolerance: float = 1e-12, corr_factor: float = 0):
         super().__init__(matrices, weights)
+        self.k_init = k_init
         self.max_iter = max_iter
         self.tolerance = tolerance
         self.corr_factor = corr_factor
@@ -127,14 +128,16 @@ class GeometricAggregator(SimilarityMatrixAggregator):
          weights, corr_matrix = riem_weights(self.matrices)
          return weights, corr_matrix  # corr_matrix è la nostra "matrice RV"
     
-    def _geommean_two(self, A: np.ndarray, B: np.ndarray, t: float) -> np.ndarray:
-        """Calcola la media geometrica pesata di due matrici."""
-        # Verifica matrici definite positive
+    def _geommean_two(self, A: np.ndarray, B: np.ndarray, t: float) -> np.ndarray: 
+        """Calcola la media geometrica pesata di due matrici (A e B),
+        con peso t (compreso tra 0 ed 1)."""
+        # Verifica matrici definite positive, altrimenti le 'perturba'
         if not (np.all(np.linalg.eigvalsh(A) > 0) and np.all(np.linalg.eigvalsh(B) > 0)):
             A = eigenval_perturb(A)
             B = eigenval_perturb(B)
         
-        # Scegli matrice meglio condizionata
+        # Scegli matrice meglio condizionata: scambia le matrici (se necessario),
+        # per avere quella meglio condizionata come prima.
         if np.linalg.cond(A) >= np.linalg.cond(B):
             A, B = B, A
             t = 1 - t
@@ -158,60 +161,73 @@ class GeometricAggregator(SimilarityMatrixAggregator):
     
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         if len(self.matrices) == 1:
-            return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source: self.weights_source,"RV_matrix": self.RV_matrix,
+            return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation}
         
         if len(self.matrices) == 2:
-            result = self._geommean_two(self.matrices[0], self.matrices[1], self.weights[0])
-            info = {"method": "geometric_mean", "iterations": 1, "weights_source: self.weights_source,"RV_matrix": self.RV_matrix,
+            result = self._geommean_two(self.matrices[1], self.matrices[0], self.weights[0])
+            info = {"method": "geometric_mean", "iterations": 1, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation}
             return result, info
         
         # Algoritmo iterativo per più di 2 matrici
-        k = 0
-        X_current = self.matrices[k]
-        self.convergence_history = []
+        k = self.k_init  # Indice iniziale parametrizzabile
+        self.convergence_history = [] 
+        iter_count = 1
+        jk = modif_mod(k, len(self.matrices))  # Indice circolare
+        X_current = self.matrices[jk - 1]  # Matrice di partenza 
+        flag = True
         
-        for iteration in range(self.max_iter):
-            k_next = modif_mod(k + 1, len(self.matrices))
-            w_exp = self.weights[k_next - 1]
-            denom = np.sum([self.weights[modif_mod(i, len(self.matrices)) - 1] 
-                          for i in range(k + 1)])
+        while flag and iter_count <= self.max_iter:
+            jk_next = modif_mod(k + 1, len(self.matrices))
+            w_exp = self.weights[jk_next - 1]
+            S_next = self.matrices[jk_next - 1]
+            
+            # Calcolo denominatore
+            denom = 0
+            indices = np.array(list(range(k + 1))) + 1
+            for i in indices:
+                denom += self.weights[modif_mod(i, len(self.matrices)) - 1]
             
             t = w_exp / denom
-            X_next = self._geommean_two(X_current, self.matrices[k_next - 1], t)
+            X_next = self._geommean_two(X_current, S_next, t)
             
             # Calcola errore di convergenza
             diff = X_next - X_current
+            #num_err = np.trace(diff @ diff.T)  
+            #den_err = np.trace(X_current @ X_current.T) 
+            #error = num_err / den_err 
             error = np.trace(diff @ diff.T) / np.trace(X_current @ X_current.T)
             self.convergence_history.append(error)
             
             if error <= self.tolerance:
-                info = {
-                    "method": "geometric_mean", 
-                    "iterations": iteration + 1,
-                    "weights_source: self.weights_source,
-                    "RV_matrix": self.RV_matrix,
-                    "weight_evaluation": self.weight_evaluation,
-                    "convergence_history": self.convergence_history.copy(),
-                    "final_error": error
-                }
-                return X_next, info
+                print(f'Convergenza raggiunta all'iterazione: {iter_count}')
+                flag = False
+            elif iter_count >= self.max_iter:
+                print('Raggiunto numero massimo di iterazioni')
+                flag = False
+            else:
+                X_current = X_next
+                k += 1
+                iter_count += 1
             
-            X_current = X_next
-            k += 1
-        
         info = {
             "method": "geometric_mean", 
-            "iterations": self.max_iter,
+            "iterations": iter_count,
             "weights_source": self.weights_source,
-            "RV_matrix": self.RV_matrix,  # Matrice di correlazione da riem_weights
+            "RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
-            "final_error": self.convergence_history[-1],
-            "warning": "Raggiunto numero massimo di iterazioni"
+            "final_error": self.convergence_history[-1]
         }
-        return X_current, info
+                
+            
+
+        if iter_count >= self.max_iter and error > self.tolerance:
+            info["warning"] = "Raggiunto numero massimo di iterazioni"
+            return X_current, info
+        else:
+            return X_next, info
 
 class WassersteinAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media di Wasserstein."""
@@ -305,7 +321,7 @@ def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tup
     
     Args:
         matrices: Lista di matrici di similarità
-        method: Metodo di aggregazione ('mean', 'weighted_mean', 'geometric', 'wasserstein')
+        method: Metodo di aggregazione ('weighted_mean', 'geometric', 'wasserstein')
         **kwargs: Parametri aggiuntivi specifici del metodo
     
     Returns:
@@ -313,7 +329,6 @@ def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tup
     """
     # Definiamo un dizionario che associa ogni stringa 'method' alla classe corrispondente
     aggregators = { 
-        'mean': MeanAggregator,
         'weighted_mean': WeightedMeanAggregator,
         'geometric': GeometricAggregator,
         'wasserstein': WassersteinAggregator
