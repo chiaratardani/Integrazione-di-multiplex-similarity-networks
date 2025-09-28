@@ -326,13 +326,13 @@ class SNFAggregator(SimilarityMatrixAggregator):
     """
     
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
-                 K: int = 20, t: int = 20, alpha: float = 1.0):
+                 K: int = 20, t: int = 20, alpha: float = 0.5):
         """
         Args:
             matrices: Liste di matrici di similarità da fondere
             K: Numero di nearest neighbors per la costruzione della matrice di affinità (default: 20)
             t: Numero di iterazioni per la fusione (default: 20)  
-            alpha: Parametro di iperparametro di regolarizzazione (default: 1.0)
+            alpha: Parametro di regolarizzazione (default: 1.0)
         """
         super().__init__(matrices, weights)
         self.K = K
@@ -355,21 +355,23 @@ class SNFAggregator(SimilarityMatrixAggregator):
         
         for i in range(n):
             # Trova i K nearest neighbors (escludendo se stesso)
-            indices = np.argsort(W[i])[::-1][1:K+1]
+            indices = np.argsort(W[i])[::-1][1:K+1] # Indici dei K più simili 
             for j in indices:
                 affinity[i, j] = W[i, j]
         
         # Rendi simmetrica
         affinity = (affinity + affinity.T) / 2
-        return affinity
+        return affinity # Ritorniamo una matrice sparsa che rappresenta le affinità locali
     
     def _normalized_cut(self, W: np.ndarray) -> np.ndarray:
-        """Applica il normalized cut alla matrice di affinità."""
-        # Calcola la matrice dei gradi
+        """Applica il normalized cut alla matrice di similarità W.
+        Lo scopo è normalizzare la matrice per bilanciare l'influenza
+        dei nodi con molti collegamenti."""
+        # Calcola la matrice dei gradi (diagonale con somma delle righe di W)
         D = np.diag(np.sum(W, axis=1))
         
         # Calcola D^(-1/2)
-        D_sqrt_inv = np.linalg.pinv(np.sqrt(D))
+        D_sqrt_inv = np.linalg.pinv(np.sqrt(D)) # Matrice pseudo-inversa 
         
         # Normalized cut: D^(-1/2) * W * D^(-1/2)
         W_normalized = D_sqrt_inv @ W @ D_sqrt_inv
@@ -392,7 +394,7 @@ class SNFAggregator(SimilarityMatrixAggregator):
         
         # Normalizza ogni matrice di similarità
         W_normalized = []
-        for W in self.matrices:
+        for W in self.matrices: # W è una matrice di similarità 
             W_norm = self._normalized_cut(W)
             W_normalized.append(W_norm)
         
@@ -402,23 +404,27 @@ class SNFAggregator(SimilarityMatrixAggregator):
             S = self._affinity_matrix(W, self.K)
             S_local.append(S)
         
-        # Algoritmo di fusione SNF
+        # Algoritmo di fusione SNF: W_current è una lista di matrici,
+        # ognuna rappresentante una vista, e in ogni iterazione aggiorniamo ogni vista in base alle altre
         W_current = W_normalized.copy()
         
-        for iteration in range(self.t):
+        for iteration in range(self.t): # Iterazione di fusione
             W_new = []
             for i in range(len(W_current)):
-                # Combina le similarità dalle altre viste
+                # Combina le similarità dalle altre viste (ogni matrice
+                # in self.matrices rappresenta una 'vista' diversa sui dati)
                 other_views = [W_current[j] for j in range(len(W_current)) if j != i]
                 
                 if other_views:
                     # Media delle altre viste
                     W_other = np.mean(other_views, axis=0)
                 else:
-                    W_other = W_current[i]
+                    W_other = W_current[i]  # Se c'è solo una matrice, usa se stessa
                 
                 # Aggiorna la similarità: fusione della vista corrente con le altre
-                W_update = S_local[i] @ W_other @ S_local[i].T
+                W_update = S_local[i] @ W_other @ S_local[i].T # dove S_local[i] è la matrice di affinità locale della vista i
+
+                # Applichiamo il normalized cut a W_update e regolarizziamo
                 W_update = self._normalized_cut(W_update)
                 
                 # Regolarizzazione
@@ -427,7 +433,8 @@ class SNFAggregator(SimilarityMatrixAggregator):
             
             W_current = W_new
         
-        # Matrice fusa finale (media di tutte le viste)
+        # Matrice fusa finale (media di tutte le viste): media di tutte le matrici di 
+        # affinità dopo t-iterazioni)
         W_fused = np.mean(W_current, axis=0)
         
         info = {
@@ -466,7 +473,7 @@ def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) ->  Di
         raise ValueError(f"Metodo non supportato: {method}. Metodi disponibili: {list(aggregators.keys())}")
     aggregator = aggregators[method](matrices, **kwargs)
     result, info = aggregator.aggregate()
-    if method=='snf':  # Poiché questo metodo di integrazione non richiede normalizzazione
+    if method=='snf':  # Poiché questo metodo di integrazione non richiede normalizzazione (SNF già lavora con matrici normalizzate)
         return {
             'aggregated_matrix': result,
             'info': info
