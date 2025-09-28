@@ -61,7 +61,7 @@ class SimilarityMatrixAggregator(ABC):
     # Utilizziamo il decoratore @abstractmethod per segnare i metodi (metodi astratti)
     # che devono essere implementati dalle classi figlie.
     @abstractmethod
-    def _compute_method_specific_weights(self) -> np.ndarray:
+    def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
         pass            
     
     @abstractmethod
@@ -442,7 +442,7 @@ class SNFAggregator(SimilarityMatrixAggregator):
         return W_fused, info
 
 # Funzione di convenienza per l'aggregazione
-def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tuple[np.ndarray, Dict[str, Any]]:
+def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) ->  Dict[str, Any]:
     """
     Funzione helper per aggregare matrici usando diversi metodi.
     
