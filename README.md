@@ -22,7 +22,7 @@ Il repository contiene i seguenti scripts .py:
 
 - **utils.py** : che contiene delle funzioni che servono per quasi tutti i moduli.
 ## ✨ Caratteristiche
-Il cuore del progetto è l'uso di una classe astratta, SimilarityMatrixAggregator:
+Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregator`:
 ```markdown
 ```python
  class SimilarityMatrixAggregator(ABC):
@@ -97,7 +97,7 @@ Il cuore del progetto è l'uso di una classe astratta, SimilarityMatrixAggregato
         """Restituisce i pesi utilizzati per l'aggregazione."""
         return self.weights
 ```
-da cui derivano le classi figlie citate sopra, che ereditano i metodi di SimilarityMatrixAggregator(ABC) e sovrascrivono i metodi astratti (segnati dal decoratore  @abstractmethod) in modo coerente. In questo modo, risulta semplice aggiungere dei nuovi aggregatori (e, quindi, delle nuove classi figlie):
+da cui derivano le classi figlie citate sopra, che ereditano i metodi di `SimilarityMatrixAggregator(ABC)` e sovrascrivono i metodi astratti (segnati dal decoratore `@abstractmethod`) in modo coerente. In questo modo, risulta semplice aggiungere dei nuovi aggregatori (e, quindi, delle nuove classi figlie):
 ```markdown
 ```python
 class NewAggregator(SimilarityMatrixAggregator):
