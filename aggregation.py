@@ -33,13 +33,13 @@ class SimilarityMatrixAggregator(ABC):
             if matrix.shape != first_shape:
                 raise ValueError(f"Matrice {i+1} ha dimensioni diverse dalla prima")
                 
-     def _compute_weight_evaluation(self) -> Optional[float]:
+    def _compute_weight_evaluation(self) -> Optional[float]:
         """Calcola la valutazione dei pesi usando la matrice RV."""
         if self.RV_matrix is not None:
             return eval_weights(self.RV_matrix)
         return None  # Se non disponibile
                 
-     def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
+    def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
         """Gestisce i pesi: se forniti li valida, altrimenti li calcola.
         In particolare, resituisce (pesi, fonte, matrice_RV)."""
         if weights is not None:
@@ -125,8 +125,8 @@ class GeometricAggregator(SimilarityMatrixAggregator):
                      
     def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calcola pesi e matrice di correlazione automaticamente con riem_weights."""
-         weights, corr_matrix = riem_weights(self.matrices)
-         return weights, corr_matrix  # corr_matrix è la nostra "matrice RV"
+        weights, corr_matrix = riem_weights(self.matrices)
+        return weights, corr_matrix  # corr_matrix è la nostra "matrice RV"
     
     def _geommean_two(self, A: np.ndarray, B: np.ndarray, t: float) -> np.ndarray: 
         """Calcola la media geometrica pesata di due matrici (A e B),
@@ -227,7 +227,7 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             "final_error": self.convergence_history[-1] if self.convergence_history else float('inf') # Controllo se la lista è vuota per robustezza
         }
 
-       return X_current, info
+        return X_current, info
 
 class WassersteinAggregator(SimilarityMatrixAggregator):
     """Aggregatore per la media di Wasserstein."""
