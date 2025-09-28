@@ -165,7 +165,7 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation}
         
-        if len(self.matrices) == 2:
+        if len(self.matrices) == 2: # Forma chiusa della media geometrica pesata
             result = self._geommean_two(self.matrices[1], self.matrices[0], self.weights[0])
             info = {"method": "geometric_mean", "iterations": 1, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
             "weight_evaluation": self.weight_evaluation}
@@ -243,9 +243,11 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         """Calcola pesi e matrice di correlazione automaticamente con riem_weights."""
         weights, corr_matrix = riem_weights(self.matrices)
         return weights, corr_matrix
-    
-    def _kx_compute(self, X: np.ndarray) -> np.ndarray:
-        """Calcola l'operatore K(X) per l'algoritmo di Wasserstein."""
+         
+    # Funzione helper per la computazione del baricentro di Wasserstein
+    # per più di due matrici (implementa iterazione fixed-point). 
+    def _kx_compute(self, X: np.ndarray) -> np.ndarray: 
+        """Calcola l'operatore K(X) per l'algoritmo di Wasserstein, con X=X_current."""
         rad = square_root_matrix(X)
         negrad = np.linalg.inv(rad)
         to_sum = [np.zeros_like(X) for _ in range(len(self.matrices))]
