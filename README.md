@@ -2,7 +2,7 @@
 ## 💻 Autore 
 **Chiara Tardani**
 ## 🚀 Obiettivo
-L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità, passate in input, in un network (di similarità) unico. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri: 
+L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità, passate in input, in un network (di similarità) unico. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri (Similarity Matrix Average, SMA): 
 ```markdown
 ```python
 class WeightedMeanAggregator(SimilarityMatrixAggregator) # Aggregatore per la media aritmetica pesata con Frobenius
@@ -20,4 +20,11 @@ Il repository contiene i seguenti scripts .py:
 
 - **aggregation.py** : che contiene le classi dei quattro aggregatori proposti;
 
-- **utils.py** is a toy example for computing the matrix average of three 2x2 matrices. The average is computed with the three methods presented in the original paper.
+- **utils.py** : che contiene delle funzioni che servono per quasi tutti i moduli.
+## ✨ Caratteristiche
+Il cuore del progetto è l'uso di una classe astratta, SimilarityMatrixAggregator:
+```markdown
+```python
+ 
+```
+
