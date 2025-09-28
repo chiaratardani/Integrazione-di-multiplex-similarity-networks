@@ -2,7 +2,7 @@
 ## 💻 Autore 
 **Chiara Tardani**
 ## 🚀 Obiettivo
-L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità passate in input in un network (di similarità) unico. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri: 
+L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità, passate in input, in un network (di similarità) unico. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri: 
 ```markdown
 ```python
 class WeightedMeanAggregator(SimilarityMatrixAggregator) # Aggregatore per la media aritmetica pesata con Frobenius
@@ -12,5 +12,12 @@ class WassersteinAggregator(SimilarityMatrixAggregator) # Aggregatore per la med
 e da <https://github.com/maxconway/SNFtool/tree/master>, da cui è stato preso il codice in R per il tool SNF (Similarity Network Fusion), è stato tradotto in linguaggio Python e trasformato a sua volta in una classe:
 ```markdown
 ```python
-class SNFAggregator(SimilarityMatrixAggregator)
+class SNFAggregator(SimilarityMatrixAggregator) #  Aggregatore che usa Similarity Network Fusion (SNF) 
 ```
+L'obiettivo è infatti sfruttare la potenza di Python come paradigma di programmazione a oggetti, creando delle classi che rappresentino aggregatori di matrici di similarità, con l'idea di trasformare il codice in una libreria Python fruibile.
+## 📚 Struttura
+Il repository contiene i seguenti scripts .py:
+
+- **aggregation.py** : che contiene le classi dei quattro aggregatori proposti;
+
+- **utils.py** is a toy example for computing the matrix average of three 2x2 matrices. The average is computed with the three methods presented in the original paper.
