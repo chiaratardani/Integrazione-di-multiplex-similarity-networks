@@ -58,10 +58,10 @@ class SimilarityMatrixAggregator(ABC):
             computed_weights, RV_matrix = self._compute_method_specific_weights()
             return computed_weights, "computed", RV_matrix
             
-    # Utilizziamo il decoratore @abstractmethod per segnare i metodi che devono essere implementati dalle classi figlie.
+    # Utilizziamo il decoratore @abstractmethod per segnare i metodi (metodi astratti)
+    # che devono essere implementati dalle classi figlie.
     @abstractmethod
     def _compute_method_specific_weights(self) -> np.ndarray:
-        """METODO ASTRATTO: ogni sottoclasse implementa il suo calcolo specifico."""
         pass            
     
     @abstractmethod
@@ -318,6 +318,129 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         }
         return X_current, info
 
+
+class SNFAggregator(SimilarityMatrixAggregator):
+    """
+    Aggregatore che usa Similarity Network Fusion (SNF) per integrare 
+    multiple matrici di similarità.
+    """
+    
+    def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None,
+                 K: int = 20, t: int = 20, alpha: float = 1.0):
+        """
+        Args:
+            matrices: Liste di matrici di similarità da fondere
+            K: Numero di nearest neighbors per la costruzione della matrice di affinità (default: 20)
+            t: Numero di iterazioni per la fusione (default: 20)  
+            alpha: Parametro di iperparametro di regolarizzazione (default: 1.0)
+        """
+        super().__init__(matrices, weights)
+        self.K = K
+        self.t = t
+        self.alpha = alpha
+                     
+    # Per conservare i moduli relativi ai pesi (richiesti dai tre aggregatori precedenti),
+    # impostiamo, per SNF (che non richiede pesi), dei pesi uniformi. 
+    def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        SNF non usa pesi tradizionali, quindi restituiamo pesi uniformi.
+        La fusione avviene attraverso l'algoritmo SNF stesso.
+        """
+        return np.ones(len(self.matrices)) / len(self.matrices), None # La matrice RV è None
+    
+    def _affinity_matrix(self, W: np.ndarray, K: int) -> np.ndarray:
+        """Costruisce la matrice di affinità da una matrice di similarità."""
+        n = W.shape[0]
+        affinity = np.zeros((n, n))
+        
+        for i in range(n):
+            # Trova i K nearest neighbors (escludendo se stesso)
+            indices = np.argsort(W[i])[::-1][1:K+1]
+            for j in indices:
+                affinity[i, j] = W[i, j]
+        
+        # Rendi simmetrica
+        affinity = (affinity + affinity.T) / 2
+        return affinity
+    
+    def _normalized_cut(self, W: np.ndarray) -> np.ndarray:
+        """Applica il normalized cut alla matrice di affinità."""
+        # Calcola la matrice dei gradi
+        D = np.diag(np.sum(W, axis=1))
+        
+        # Calcola D^(-1/2)
+        D_sqrt_inv = np.linalg.pinv(np.sqrt(D))
+        
+        # Normalized cut: D^(-1/2) * W * D^(-1/2)
+        W_normalized = D_sqrt_inv @ W @ D_sqrt_inv
+        return W_normalized
+    
+    def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """
+        Applica l'algoritmo SNF per fondere le matrici di similarità.
+        """
+        if len(self.matrices) == 1:
+            info = {
+                "method": "snf",
+                "iterations": 0,
+                "RV_matrix": self.RV_matrix,  # Per mantenere consistenza
+                "weight_evaluation": self.weight_evaluation,
+                "weights_source": self.weights_source,
+                "parameters": {"K": self.K, "t": self.t, "alpha": self.alpha}
+            }
+            return self.matrices[0], info
+        
+        # Normalizza ogni matrice di similarità
+        W_normalized = []
+        for W in self.matrices:
+            W_norm = self._normalized_cut(W)
+            W_normalized.append(W_norm)
+        
+        # Costruisce le matrici di similarità locale per ogni vista
+        S_local = []
+        for W in W_normalized:
+            S = self._affinity_matrix(W, self.K)
+            S_local.append(S)
+        
+        # Algoritmo di fusione SNF
+        W_current = W_normalized.copy()
+        
+        for iteration in range(self.t):
+            W_new = []
+            for i in range(len(W_current)):
+                # Combina le similarità dalle altre viste
+                other_views = [W_current[j] for j in range(len(W_current)) if j != i]
+                
+                if other_views:
+                    # Media delle altre viste
+                    W_other = np.mean(other_views, axis=0)
+                else:
+                    W_other = W_current[i]
+                
+                # Aggiorna la similarità: fusione della vista corrente con le altre
+                W_update = S_local[i] @ W_other @ S_local[i].T
+                W_update = self._normalized_cut(W_update)
+                
+                # Regolarizzazione
+                W_update = self.alpha * W_update + (1 - self.alpha) * W_current[i]
+                W_new.append(W_update)
+            
+            W_current = W_new
+        
+        # Matrice fusa finale (media di tutte le viste)
+        W_fused = np.mean(W_current, axis=0)
+        
+        info = {
+            "method": "snf",
+            "iterations": self.t,
+            "RV_matrix": self.RV_matrix,  
+            "weight_evaluation": self.weight_evaluation, 
+            "weights_source": self.weights_source,
+            "parameters": {"K": self.K, "t": self.t, "alpha": self.alpha}
+        }
+        
+        return W_fused, info
+
 # Funzione di convenienza per l'aggregazione
 def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tuple[np.ndarray, Dict[str, Any]]:
     """
@@ -335,18 +458,25 @@ def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) -> Tup
     aggregators = { 
         'weighted_mean': WeightedMeanAggregator,
         'geometric': GeometricAggregator,
-        'wasserstein': WassersteinAggregator
+        'wasserstein': WassersteinAggregator,
+        'snf': SNFAggregator
     }
     
     if method not in aggregators:
         raise ValueError(f"Metodo non supportato: {method}. Metodi disponibili: {list(aggregators.keys())}")
     aggregator = aggregators[method](matrices, **kwargs)
-    barycenter, info = aggregator.aggregate() 
-    norm_barycenter = normalize_simmat(barycenter)
+    result, info = aggregator.aggregate()
+    if method=='snf':  # Poiché questo metodo di integrazione non richiede normalizzazione
+        return {
+            'aggregated_matrix': result,
+            'info': info
+        }
+            
+    normalized_result = normalize_simmat(result)
     # Restituiamo un dizionario completo (con la versione originale del baricentro computato, la versione normalizzata,
     # così che gli elementi diagonali siano uguali ad 1, e info sul metodo di aggregazione)
     return {    
-        'original': barycenter,
-        'normalized': normalized_barycenter,
+        'aggregated_matrix': result,
+        'normalized_aggregated_matrix': normalized_result,
         'info': info
     }
