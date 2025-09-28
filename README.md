@@ -2,7 +2,7 @@
 ## 💻 Autore 
 **Chiara Tardani**
 ## 🚀 Obiettivo
-L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità multiplex, passate in input, in un network (di similarità) unico. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri (Similarity Matrix Average, SMA): 
+L'obiettivo delle funzioni implementate è quello di integrare le reti di similarità multiplex, passate in input, in un network (di similarità) unico, ovvero monoplex. I metodi di aggregazione proposti sono stati presi da <https://github.com/DedeBac/SimilarityMatrixAggregation> per quanto riguarda il calcolo dei tre baricentri (Similarity Matrix Average, SMA): 
 ```markdown
 ```python
 class WeightedMeanAggregator(SimilarityMatrixAggregator) # Aggregatore per la media aritmetica pesata con Frobenius
