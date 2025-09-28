@@ -21,8 +21,9 @@ def cos_sim(B: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
                 sim_mat[i,j] = B_square[i,j] / np.sqrt(B_square[i,i] * B_square[j,j])
     
     return sim_mat, B_square
-
-def normalize_simmat(sim_mat: np.ndarray) -> np.ndarray:
+    
+# Questa funzione deve essere utilizzata per normalizzare i valori dei baricentri
+def normalize_simmat(sim_mat: np.ndarray) -> np.ndarray: 
     """Normalizza una matrice di similarità."""
     sim_mat_norm = np.zeros(sim_mat.shape)
     for i in range(sim_mat.shape[0]):
@@ -32,7 +33,8 @@ def normalize_simmat(sim_mat: np.ndarray) -> np.ndarray:
     return sim_mat_norm
 
 def modif_mod(k: int, m: int) -> int:
-    """Modulo modificato che restituisce m quando il resto è 0."""
+    """Funzione che restituisce m quando 
+    il resto (modulo k%m) è 0."""
     res = k % m
     return res if res != 0 else m
 
@@ -45,7 +47,9 @@ def eval_weights(RVcoeff: np.ndarray) -> float:
 
 def eigenval_perturb(data_matrix: np.ndarray, tol_eig: float = 2e-12, 
                     pert_tol: float = 2e-12) -> np.ndarray:
-    """Perturba leggermente gli autovalori per stabilizzare matrici quasi singolari."""
+    """Perturba leggermente gli autovalori per stabilizzare matrici quasi singolari.
+    tol_eig è una piccola costante usata per perturbare gli autovalori, mentre
+    pert_tol è una tolleranza sulla distanza della matrice dall'originale."""
     eva, evec = np.linalg.eigh(data_matrix)
     eva_neg = eva[eva < 0]
     
@@ -57,7 +61,8 @@ def eigenval_perturb(data_matrix: np.ndarray, tol_eig: float = 2e-12,
     return reconstructed
 
 def frobenius_weights(RV: np.ndarray) -> np.ndarray:
-    """Calcola pesi per la media aritmetica pesata usando Frobenius."""
+    """Calcola pesi per la media aritmetica pesata usando Frobenius (prendendo
+    l'autovettore corrispondente al più grande autovalore della matrice RV."""
     eigenvals, eigenvecs = np.linalg.eig(RV)
     idx = eigenvals.argsort()[::-1]
     max_evec = eigenvecs[:, idx[0]]
@@ -65,7 +70,7 @@ def frobenius_weights(RV: np.ndarray) -> np.ndarray:
     return weights_vector
 
 def riem_weights(matrices: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-    """Calcola pesi per la media Riemanniana."""
+    """Calcola pesi per la media Riemanniana, utilizzando la metrica di Riemann."""
     n = len(matrices)
     corr_mat = np.identity(n)
     
