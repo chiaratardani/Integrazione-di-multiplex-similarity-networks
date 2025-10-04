@@ -70,7 +70,7 @@ def frobenius_weights(RV: np.ndarray) -> np.ndarray:
     return weights_vector
 
 def riem_weights(matrices: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
-    """Calcola pesi per la media Riemanniana, utilizzando la metrica di Riemann."""
+    """Calcola pesi per la media Riemanniana (e di Wasserstein)."""
     n = len(matrices)
     corr_mat = np.identity(n)
     
