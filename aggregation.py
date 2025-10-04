@@ -451,7 +451,7 @@ class SNFAggregator(SimilarityMatrixAggregator):
         return W_fused, info
 
 # Funzione di convenienza per l'aggregazione
-def aggregate(matrices: List[np.ndarray], method: str = 'mean', **kwargs) ->  Dict[str, Any]:
+def aggregate(matrices: List[np.ndarray], method: str = 'snf', **kwargs) ->  Dict[str, Any]:
     """
     Funzione helper per aggregare matrici usando diversi metodi.
     
