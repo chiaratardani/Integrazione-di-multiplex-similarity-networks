@@ -367,8 +367,8 @@ class SNFAggregator(SimilarityMatrixAggregator):
 
     def _normalized_cut(self, W: np.ndarray) -> np.ndarray:
         """Applica il normalized cut alla matrice di similarità W.
-        Lo scopo è normalizzare la matrice per bilanciare l'influenza
-        dei nodi con molti collegamenti."""
+        Lo scopo è normalizzare la matrice (normalizzata riga per riga) 
+        per bilanciare l'influenza dei nodi con molti collegamenti."""
         # Calcola la matrice dei gradi (diagonale con somma delle righe di W)
         D = np.diag(np.sum(W, axis=1))
 
@@ -476,12 +476,6 @@ def aggregate(matrices: List[np.ndarray], method: str = 'snf', weights: Optional
         raise ValueError(f"Metodo non supportato: {method}. Metodi disponibili: {list(aggregators.keys())}")
     aggregator = aggregators[method](matrices, weights=weights, **kwargs)
     result, info = aggregator.aggregate()
-    if method=='snf':  # Poiché questo metodo di integrazione non richiede normalizzazione (SNF già lavora con matrici normalizzate)
-        return {
-            'aggregated_matrix': result,
-            'info': info
-        }
-
     normalized_result = normalize_simmat(result)
     # Restituiamo un dizionario completo (con la versione originale del baricentro computato, la versione normalizzata,
     # così che gli elementi diagonali siano uguali ad 1, e info sul metodo di aggregazione)
