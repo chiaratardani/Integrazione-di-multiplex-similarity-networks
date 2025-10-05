@@ -20,7 +20,9 @@ Il repository contiene i seguenti scripts .py:
 
 - **aggregation.py** : che contiene le classi dei quattro aggregatori proposti;
 
-- **utils.py** : che contiene delle funzioni che servono per quasi tutti i moduli.
+- **utils.py** : che contiene delle funzioni che servono per quasi tutti i moduli;
+
+- **example.py** : che contiene un esempio di applicazione del codice a matrici di similarità random.
 ## ✨ Caratteristiche
 Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregator`:
 ```markdown
