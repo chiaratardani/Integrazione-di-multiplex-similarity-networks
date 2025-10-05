@@ -28,7 +28,7 @@ Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregat
  class SimilarityMatrixAggregator(ABC):
     """Classe base astratta per aggregatori di matrici di similarità."""
     
-    def __init__(self, matrices: List[np.ndarray]):
+    def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None):
         self.matrices = matrices
         self.weights, self.weights_source, self.RV_matrix = self._resolve_weights(weights)
         self._validate_input()
