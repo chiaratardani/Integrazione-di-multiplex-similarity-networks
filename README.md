@@ -12,7 +12,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator) # Aggregatore per la med
 e da <https://github.com/maxconway/SNFtool/tree/master>, da cui è stato preso il codice in R per il tool SNF (Similarity Network Fusion), è stato tradotto in linguaggio Python e trasformato a sua volta in una classe:
 ```markdown
 ```python
-class SNFAggregator(SimilarityMatrixAggregator) #  Aggregatore che usa Similarity Network Fusion (SNF) 
+class SNFAggregator(SimilarityMatrixAggregator) # Aggregatore che usa Similarity Network Fusion (SNF) 
 ```
 L'obiettivo è infatti sfruttare la potenza di Python come paradigma di programmazione a oggetti, creando delle classi che rappresentino aggregatori di matrici di similarità, con l'idea di trasformare il codice in una libreria Python fruibile.
 ## 📚 Struttura
