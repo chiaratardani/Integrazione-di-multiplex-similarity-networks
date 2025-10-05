@@ -91,4 +91,3 @@ def square_root_matrix(A: np.ndarray) -> np.ndarray:
     eigvals, V = np.linalg.eig(A)
     diag_root = np.diag([v**(1/2) for v in eigvals])
     return V @ diag_root @ np.linalg.inv(V)
-
