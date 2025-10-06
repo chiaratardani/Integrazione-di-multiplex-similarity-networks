@@ -64,7 +64,7 @@ Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregat
                 
      def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
         """Gestisce i pesi: se forniti li valida, altrimenti li calcola.
-        In particolare, resituisce (pesi, fonte, matrice_RV)."""
+        In particolare, resituisce (pesi, fonte, matrice RV)."""
         if weights is not None:
             # Validazione pesi utente
             if len(weights) != len(self.matrices):
