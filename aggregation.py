@@ -457,7 +457,7 @@ def aggregate(matrices: List[np.ndarray], method: str = 'snf', weights: Optional
 
     Args:
         matrices: Lista di matrici di similarità
-        method: Metodo di aggregazione ('weighted_mean', 'geometric', 'wasserstein')
+        method: Metodo di aggregazione ('weighted_mean', 'geometric', 'wasserstein', 'snf')
         weights: Pesi opzionali per l'aggregazione
         **kwargs: Parametri aggiuntivi specifici del metodo
 
