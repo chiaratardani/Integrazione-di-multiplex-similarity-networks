@@ -75,7 +75,7 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
 
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None):
         super().__init__(matrices, weights)  # Matrici e pesi gestiti dalla classe base (astratta)
-        self.weight_evaluation = eval_weights(self.RV_matrix) # Funzione per valutare la qualità della scelta dei pesi
+        self.weight_evaluation = eval_weights(self.RV_matrix)  # Funzione che valuta quanto bene i pesi rappresentano le matrici
     def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calcola i pesi (e matrice RV) usando il metodo di Frobenius."""
         # Crea matrice RV per calcolare similarità tra matrici
@@ -100,7 +100,7 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
             "method": "weighted_arithmetic_mean",
             "weights": self.weights.copy(),
             "RV_matrix": self.RV_matrix,  # Matrice RV
-            "weight_evaluation": self.weight_evaluation  # Funzione che valuta quanto bene i pesi rappresentano le matrici
+            "weight_evaluation": self.weight_evaluation 
         }
         return weighted_sum, info
 
