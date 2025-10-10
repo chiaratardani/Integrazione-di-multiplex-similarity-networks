@@ -11,7 +11,6 @@ class SimilarityMatrixAggregator(ABC):
         self.matrices = matrices
         self.weights, self.weights_source, self.RV_matrix = self._resolve_weights(weights)
         self._validate_input()
-        self.weight_evaluation = self._compute_weight_evaluation()
 
     def _validate_input(self) -> None:
         """Valida gli input delle matrici."""
@@ -32,12 +31,6 @@ class SimilarityMatrixAggregator(ABC):
         for i, matrix in enumerate(self.matrices[1:]):
             if matrix.shape != first_shape:
                 raise ValueError(f"Matrice {i+1} ha dimensioni diverse dalla prima")
-
-    def _compute_weight_evaluation(self) -> Optional[float]:
-        """Calcola la valutazione dei pesi usando la matrice RV."""
-        if self.RV_matrix is not None:
-            return eval_weights(self.RV_matrix)
-        return None  # Se non disponibile
 
     def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
         """Gestisce i pesi: se forniti li valida, altrimenti li calcola.
@@ -82,7 +75,7 @@ class WeightedMeanAggregator(SimilarityMatrixAggregator):
 
     def __init__(self, matrices: List[np.ndarray], weights: Optional[np.ndarray] = None):
         super().__init__(matrices, weights)  # Matrici e pesi gestiti dalla classe base (astratta)
-
+        self.weight_evaluation = eval_weights(self.RV_matrix) # Funzione per valutare la qualità della scelta dei pesi
     def _compute_method_specific_weights(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calcola i pesi (e matrice RV) usando il metodo di Frobenius."""
         # Crea matrice RV per calcolare similarità tra matrici
@@ -162,13 +155,11 @@ class GeometricAggregator(SimilarityMatrixAggregator):
     def aggregate(self) -> Tuple[np.ndarray, Dict[str, Any]]:
         self.convergence_history = [] # Reset dell'attributo ad ogni chiamata di 'aggregate'
         if len(self.matrices) == 1:
-            return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
-            "weight_evaluation": self.weight_evaluation}
+            return self.matrices[0], {"method": "geometric_mean", "iterations": 0, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix}
 
         if len(self.matrices) == 2: # Forma chiusa della media geometrica pesata
             result = self._geommean_two(self.matrices[1], self.matrices[0], self.weights[0])
-            info = {"method": "geometric_mean", "iterations": 1, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix,
-            "weight_evaluation": self.weight_evaluation}
+            info = {"method": "geometric_mean", "iterations": 1, "weights_source": self.weights_source,"RV_matrix": self.RV_matrix}
             return result, info
 
         # Algoritmo iterativo per più di 2 matrici
@@ -206,7 +197,6 @@ class GeometricAggregator(SimilarityMatrixAggregator):
                     "iterations": iter_count,
                     "weights_source": self.weights_source,
                     "RV_matrix": self.RV_matrix,
-                    "weight_evaluation": self.weight_evaluation,
                     "convergence_history": self.convergence_history.copy(),
                     "final_error": error
                }
@@ -222,7 +212,6 @@ class GeometricAggregator(SimilarityMatrixAggregator):
             "iterations":  self.max_iter,
             "weights_source": self.weights_source,
             "RV_matrix": self.RV_matrix,
-            "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
             "final_error": self.convergence_history[-1] if self.convergence_history else float('inf') # Controllo se la lista è vuota per robustezza
         }
@@ -265,7 +254,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
         self.convergence_history = [] # Reset della storia di convergenza
         if len(self.matrices) == 1:
             return self.matrices[0], {"method": "wasserstein_mean", "iterations": 0, "weights_source": self.weights_source,
-            "RV_matrix": self.RV_matrix, "weight_evaluation": self.weight_evaluation}
+            "RV_matrix": self.RV_matrix}
 
         if len(self.matrices) == 2:
             # Implementazione forma chiusa per 2 matrici
@@ -276,7 +265,7 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
                 square_root_matrix(self.matrices[1] @ self.matrices[0]))
             result = s1 + s2 + s12
             info = {"method": "wasserstein_mean", "iterations": 1, "weights_source": self.weights_source,
-            "RV_matrix": self.RV_matrix, "weight_evaluation": self.weight_evaluation}
+            "RV_matrix": self.RV_matrix}
             return result, info
 
         # Algoritmo iterativo per più matrici
@@ -300,7 +289,6 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
                     "iterations": iter_count,
                     "weights_source": self.weights_source,
                     "RV_matrix": self.RV_matrix,
-                    "weight_evaluation": self.weight_evaluation,
                     "convergence_history": self.convergence_history.copy(),
                     "final_error": error
                 }
@@ -314,7 +302,6 @@ class WassersteinAggregator(SimilarityMatrixAggregator):
             "iterations": self.max_iter,
             "weights_source": self.weights_source,
             "RV_matrix": self.RV_matrix,
-            "weight_evaluation": self.weight_evaluation,
             "convergence_history": self.convergence_history.copy(),
             "final_error": self.convergence_history[-1] if self.convergence_history else float('inf')
         }
@@ -388,7 +375,6 @@ class SNFAggregator(SimilarityMatrixAggregator):
                 "method": "snf",
                 "iterations": 0,
                 "RV_matrix": self.RV_matrix,  # Per mantenere consistenza
-                "weight_evaluation": self.weight_evaluation,
                 "weights_source": self.weights_source,
                 "parameters": {"K": self.K, "t": self.t, "alpha": self.alpha}
             }
@@ -443,7 +429,6 @@ class SNFAggregator(SimilarityMatrixAggregator):
             "method": "snf",
             "iterations": self.t,
             "RV_matrix": self.RV_matrix,
-            "weight_evaluation": self.weight_evaluation,
             "weights_source": self.weights_source,
             "parameters": {"K": self.K, "t": self.t, "alpha": self.alpha}
         }
