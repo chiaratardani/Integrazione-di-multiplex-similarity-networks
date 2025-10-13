@@ -34,7 +34,6 @@ Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregat
         self.matrices = matrices
         self.weights, self.weights_source, self.RV_matrix = self._resolve_weights(weights)
         self._validate_input()
-        self.weight_evaluation = self._compute_weight_evaluation()
     
     def _validate_input(self) -> None:
         """Valida gli input delle matrici."""
