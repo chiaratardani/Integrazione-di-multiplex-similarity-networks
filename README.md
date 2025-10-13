@@ -56,12 +56,6 @@ Il cuore del progetto è l'uso di una classe astratta, `SimilarityMatrixAggregat
             if matrix.shape != first_shape:
                 raise ValueError(f"Matrice {i+1} ha dimensioni diverse dalla prima")
                 
-     def _compute_weight_evaluation(self) -> Optional[float]:
-        """Calcola la valutazione dei pesi usando la matrice RV."""
-        if self.RV_matrix is not None:
-            return eval_weights(self.RV_matrix)
-        return None  # Se non disponibile
-                
      def _resolve_weights(self, weights: Optional[np.ndarray]) -> Tuple[np.ndarray, str, Optional[np.ndarray]]:
         """Gestisce i pesi: se forniti li valida, altrimenti li calcola.
         In particolare, resituisce (pesi, fonte, matrice RV)."""
