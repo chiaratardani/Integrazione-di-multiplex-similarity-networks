@@ -321,7 +321,7 @@ class SNFAggregator(SimilarityMatrixAggregator):
             matrices: Liste di matrici di similarità da fondere
             K: Numero di nearest neighbors per la costruzione della matrice di affinità (default: 20)
             t: Numero di iterazioni per la fusione (default: 20)
-            alpha: Parametro di regolarizzazione (default: 1.0)
+            alpha: Parametro di regolarizzazione (default: 0.5)
         """
         super().__init__(matrices, weights)
         self.K = K
